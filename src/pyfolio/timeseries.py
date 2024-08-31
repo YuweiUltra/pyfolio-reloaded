@@ -1,3 +1,4 @@
+#timeseries.py
 #
 # Copyright 2018 Quantopian, Inc.
 #
@@ -536,7 +537,7 @@ def rolling_beta(returns, factor_returns, rolling_window=APPROX_BDAYS_PER_MONTH 
     else:
         out = pd.Series(index=returns.index, dtype="float64")
         for beg, end in zip(
-            returns.index[0:-rolling_window], returns.index[rolling_window:]
+                returns.index[0:-rolling_window], returns.index[rolling_window:]
         ):
             out.loc[end] = ep.beta(returns.loc[beg:end], factor_returns.loc[beg:end])
 
@@ -544,10 +545,10 @@ def rolling_beta(returns, factor_returns, rolling_window=APPROX_BDAYS_PER_MONTH 
 
 
 def rolling_regression(
-    returns,
-    factor_returns,
-    rolling_window=APPROX_BDAYS_PER_MONTH * 6,
-    nan_threshold=0.1,
+        returns,
+        factor_returns,
+        rolling_window=APPROX_BDAYS_PER_MONTH * 6,
+        nan_threshold=0.1,
 ):
     """
     Computes rolling factor betas using a multivariate linear regression
@@ -585,7 +586,7 @@ def rolling_regression(
     rolling_risk.index.name = "dt"
 
     for beg, end in zip(
-        ret_no_na.index[:-rolling_window], ret_no_na.index[rolling_window:]
+            ret_no_na.index[:-rolling_window], ret_no_na.index[rolling_window:]
     ):
         returns_period = ret_no_na[beg:end]
         factor_returns_period = factor_returns.loc[returns_period.index]
@@ -689,11 +690,11 @@ STAT_FUNC_NAMES = {
 
 
 def perf_stats(
-    returns,
-    factor_returns=None,
-    positions=None,
-    transactions=None,
-    turnover_denom="AGB",
+        returns,
+        factor_returns=None,
+        positions=None,
+        transactions=None,
+        turnover_denom="AGB",
 ):
     """
     Calculates various performance metrics of a strategy, for use in
@@ -1016,8 +1017,8 @@ def gen_drawdown_table(returns, top=10):
                 "%Y-%m-%d"
             )
         df_drawdowns.loc[i, "Net drawdown in %"] = (
-            (df_cum.loc[peak] - df_cum.loc[valley]) / df_cum.loc[peak]
-        ) * 100
+                                                           (df_cum.loc[peak] - df_cum.loc[valley]) / df_cum.loc[peak]
+                                                   ) * 100
 
     df_drawdowns["Peak date"] = pd.to_datetime(df_drawdowns["Peak date"])
     df_drawdowns["Valley date"] = pd.to_datetime(df_drawdowns["Valley date"])
@@ -1070,14 +1071,14 @@ def rolling_sharpe(returns, rolling_sharpe_window):
     """
 
     return (
-        returns.rolling(rolling_sharpe_window).mean()
-        / returns.rolling(rolling_sharpe_window).std()
-        * np.sqrt(APPROX_BDAYS_PER_YEAR)
+            returns.rolling(rolling_sharpe_window).mean()
+            / returns.rolling(rolling_sharpe_window).std()
+            * np.sqrt(APPROX_BDAYS_PER_YEAR)
     )
 
 
 def simulate_paths(
-    is_returns, num_days, starting_value=1, num_samples=1000, random_seed=None
+        is_returns, num_days, starting_value=1, num_samples=1000, random_seed=None
 ):
     """
     Gnerate alternate paths using available values from in-sample returns.
@@ -1148,12 +1149,12 @@ def summarize_paths(samples, cone_std=(1.0, 1.5, 2.0), starting_value=1.0):
 
 
 def forecast_cone_bootstrap(
-    is_returns,
-    num_days,
-    cone_std=(1.0, 1.5, 2.0),
-    starting_value=1,
-    num_samples=1000,
-    random_seed=None,
+        is_returns,
+        num_days,
+        cone_std=(1.0, 1.5, 2.0),
+        starting_value=1,
+        num_samples=1000,
+        random_seed=None,
 ):
     """
     Determines the upper and lower bounds of an n standard deviation

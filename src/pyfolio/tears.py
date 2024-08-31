@@ -21,6 +21,10 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 from IPython.display import display, Markdown
+import os
+import glob
+import datetime
+import base64
 
 from . import capacity
 from . import perf_attrib
@@ -30,6 +34,10 @@ from . import round_trips
 from . import timeseries
 from . import txn
 from . import utils
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 FACTOR_PARTITIONS = {
     "style": [
@@ -55,6 +63,19 @@ FACTOR_PARTITIONS = {
 }
 
 
+def save_plot(fig_or_ax, plot_name, directory="./plots/temp"):
+    """Save a matplotlib figure or axes object."""
+    logging.info(f'Saving {plot_name} to {directory}')
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    filepath = os.path.join(directory, f"{plot_name}.png")
+    if isinstance(fig_or_ax, plt.Figure):
+        fig_or_ax.savefig(filepath)
+    else:
+        fig_or_ax.get_figure().savefig(filepath)
+    print(f"Plot saved: {filepath}")
+
+
 def timer(msg_body, previous_time):
     current_time = time()
     run_time = current_time - previous_time
@@ -65,27 +86,28 @@ def timer(msg_body, previous_time):
 
 
 def create_full_tear_sheet(
-    returns,
-    positions=None,
-    transactions=None,
-    market_data=None,
-    benchmark_rets=None,
-    slippage=None,
-    live_start_date=None,
-    sector_mappings=None,
-    round_trips=False,
-    estimate_intraday="infer",
-    hide_positions=False,
-    cone_std=(1.0, 1.5, 2.0),
-    bootstrap=False,
-    unadjusted_returns=None,
-    turnover_denom="AGB",
-    set_context=True,
-    factor_returns=None,
-    factor_loadings=None,
-    pos_in_dollars=True,
-    header_rows=None,
-    factor_partitions=FACTOR_PARTITIONS,
+        returns,
+        positions=None,
+        transactions=None,
+        market_data=None,
+        benchmark_rets=None,
+        slippage=None,
+        live_start_date=None,
+        sector_mappings=None,
+        round_trips=False,
+        estimate_intraday="infer",
+        hide_positions=False,
+        cone_std=(1.0, 1.5, 2.0),
+        bootstrap=False,
+        unadjusted_returns=None,
+        turnover_denom="AGB",
+        set_context=True,
+        factor_returns=None,
+        factor_loadings=None,
+        pos_in_dollars=True,
+        header_rows=None,
+        factor_partitions=FACTOR_PARTITIONS,
+        results_dir=None,
 ):
     """
     Generate a number of tear sheets that are useful
@@ -182,10 +204,17 @@ def create_full_tear_sheet(
         - See create_perf_attrib_tear_sheet().
     """
 
+    # Location where the individual HTML files are saved
+    html_files_dir = './plots/temp'
+    plots_dir = './plots/temp'
+
+    aggregated_filename = f"full_tearsheet.html"
+    aggregated_file_path = os.path.join(results_dir, aggregated_filename)
+
     if (
-        (unadjusted_returns is None)
-        and (slippage is not None)
-        and (transactions is not None)
+            (unadjusted_returns is None)
+            and (slippage is not None)
+            and (transactions is not None)
     ):
         unadjusted_returns = returns.copy()
         returns = txn.adjust_returns_for_slippage(
@@ -263,18 +292,44 @@ def create_full_tear_sheet(
                 factor_partitions=factor_partitions,
             )
 
+    # Aggregate HTML content from tables
+    aggregated_html_content = ''
+    for html_file in sorted(glob.glob(os.path.join(html_files_dir, "*.html"))):
+        with open(html_file, 'r') as file:
+            aggregated_html_content += file.read() + '<br><hr><br>'
+
+    # Embed PNG files into HTML content
+    for png_file in glob.glob(os.path.join(plots_dir, "*.png")):
+        with open(png_file, "rb") as image_file:
+            encoded_string = base64.b64encode(image_file.read()).decode()
+            img_tag = f'<img src="data:image/png;base64,{encoded_string}" style="width:100%"><br><hr><br>'
+            aggregated_html_content += img_tag
+
+    # Save the aggregated content to a new HTML file
+
+    with open(aggregated_file_path, 'w') as file:
+        file.write(aggregated_html_content)
+    logging.info(f"Aggregated tearsheet saved to {aggregated_file_path}")
+
+    # Delete individual HTML files to avoid duplication in the future
+    for html_file in glob.glob(os.path.join(html_files_dir, "*.html")):
+        os.remove(html_file)
+
+    for png_file in glob.glob(os.path.join(html_files_dir, "*.png")):
+        os.remove(png_file)
+
 
 @plotting.customize
 def create_simple_tear_sheet(
-    returns,
-    positions=None,
-    transactions=None,
-    benchmark_rets=None,
-    slippage=None,
-    estimate_intraday="infer",
-    live_start_date=None,
-    turnover_denom="AGB",
-    header_rows=None,
+        returns,
+        positions=None,
+        transactions=None,
+        benchmark_rets=None,
+        slippage=None,
+        estimate_intraday="infer",
+        live_start_date=None,
+        turnover_denom="AGB",
+        header_rows=None,
 ):
     """
     Simpler version of create_full_tear_sheet; generates summary performance
@@ -465,16 +520,16 @@ def create_simple_tear_sheet(
 
 @plotting.customize
 def create_returns_tear_sheet(
-    returns,
-    positions=None,
-    transactions=None,
-    live_start_date=None,
-    cone_std=(1.0, 1.5, 2.0),
-    benchmark_rets=None,
-    bootstrap=False,
-    turnover_denom="AGB",
-    header_rows=None,
-    return_fig=False,
+        returns,
+        positions=None,
+        transactions=None,
+        live_start_date=None,
+        cone_std=(1.0, 1.5, 2.0),
+        benchmark_rets=None,
+        bootstrap=False,
+        turnover_denom="AGB",
+        header_rows=None,
+        return_fig=False,
 ):
     """
     Generate a number of plots for analyzing a strategy's returns.
@@ -520,7 +575,6 @@ def create_returns_tear_sheet(
     return_fig : boolean, optional
         If True, returns the figure that was plotted on.
     """
-
     if benchmark_rets is not None:
         returns = utils.clip_returns_to_benchmark(returns, benchmark_rets)
 
@@ -654,20 +708,22 @@ def create_returns_tear_sheet(
             labelbottom=True,
         )
 
+    save_plot(fig, 'Full Tear Sheet')
+
     if return_fig:
         return fig
 
 
 @plotting.customize
 def create_position_tear_sheet(
-    returns,
-    positions,
-    show_and_plot_top_pos=2,
-    hide_positions=False,
-    sector_mappings=None,
-    transactions=None,
-    estimate_intraday="infer",
-    return_fig=False,
+        returns,
+        positions,
+        show_and_plot_top_pos=2,
+        hide_positions=False,
+        sector_mappings=None,
+        transactions=None,
+        estimate_intraday="infer",
+        return_fig=False,
 ):
     """
     Generate a number of plots for analyzing a
@@ -760,19 +816,21 @@ def create_position_tear_sheet(
             labelbottom=True,
         )
 
+    save_plot(fig, 'Position Tear Sheet')
+
     if return_fig:
         return fig
 
 
 @plotting.customize
 def create_txn_tear_sheet(
-    returns,
-    positions,
-    transactions,
-    turnover_denom="AGB",
-    unadjusted_returns=None,
-    estimate_intraday="infer",
-    return_fig=False,
+        returns,
+        positions,
+        transactions,
+        turnover_denom="AGB",
+        unadjusted_returns=None,
+        estimate_intraday="infer",
+        return_fig=False,
 ):
     """
     Generate a number of plots for analyzing a strategy's transactions.
@@ -861,18 +919,20 @@ def create_txn_tear_sheet(
             labelbottom=True,
         )
 
+    save_plot(fig, 'TXN Tear Sheet')
+
     if return_fig:
         return fig
 
 
 @plotting.customize
 def create_round_trip_tear_sheet(
-    returns,
-    positions,
-    transactions,
-    sector_mappings=None,
-    estimate_intraday="infer",
-    return_fig=False,
+        returns,
+        positions,
+        transactions,
+        sector_mappings=None,
+        estimate_intraday="infer",
+        return_fig=False,
 ):
     """
     Generate a number of figures and plots describing the duration,
@@ -907,7 +967,6 @@ def create_round_trip_tear_sheet(
     )
 
     transactions_closed = round_trips.add_closing_transactions(positions, transactions)
-
     # extract_round_trips requires BoD portfolio_value
     trades = round_trips.extract_round_trips(
         transactions_closed,
@@ -958,17 +1017,19 @@ def create_round_trip_tear_sheet(
 
     gs.tight_layout(fig)
 
+    save_plot(fig, 'Round Trip Tear Sheet')
+
     if return_fig:
         return fig
 
 
 @plotting.customize
 def create_interesting_times_tear_sheet(
-    returns,
-    benchmark_rets=None,
-    periods=None,
-    legend_loc="best",
-    return_fig=False,
+        returns,
+        benchmark_rets=None,
+        periods=None,
+        legend_loc="best",
+        return_fig=False,
 ):
     """
     Generate a number of returns plots around interesting points in time,
@@ -998,6 +1059,7 @@ def create_interesting_times_tear_sheet(
     return_fig : boolean, optional
         If True, returns the figure that was plotted on.
     """
+    logging.info('Running create_interesting_times_tear_sheet')
 
     rets_interesting = timeseries.extract_interesting_date_ranges(returns, periods)
 
@@ -1056,22 +1118,24 @@ def create_interesting_times_tear_sheet(
         ax.set_ylabel("Returns")
         ax.set_xlabel("")
 
+    save_plot(fig, 'Interesting Times Tear Sheet')
+
     if return_fig:
         return fig
 
 
 @plotting.customize
 def create_capacity_tear_sheet(
-    returns,
-    positions,
-    transactions,
-    market_data,
-    liquidation_daily_vol_limit=0.2,
-    trade_daily_vol_limit=0.05,
-    last_n_days=utils.APPROX_BDAYS_PER_MONTH * 6,
-    days_to_liquidate_limit=1,
-    estimate_intraday="infer",
-    return_fig=False,
+        returns,
+        positions,
+        transactions,
+        market_data,
+        liquidation_daily_vol_limit=0.2,
+        trade_daily_vol_limit=0.05,
+        last_n_days=utils.APPROX_BDAYS_PER_MONTH * 6,
+        days_to_liquidate_limit=1,
+        estimate_intraday="infer",
+        return_fig=False,
 ):
     """
     Generates a report detailing portfolio size constraints set by
@@ -1138,7 +1202,7 @@ def create_capacity_tear_sheet(
     utils.print_table(
         max_days_by_ticker[
             max_days_by_ticker.days_to_liquidate > days_to_liquidate_limit
-        ]
+            ]
     )
 
     max_days_by_ticker_lnd = capacity.get_max_days_to_liquidate_by_ticker(
@@ -1185,20 +1249,22 @@ def create_capacity_tear_sheet(
         ax=ax_capacity_sweep,
     )
 
+    save_plot(fig, 'Capacity Tear Sheet')
+
     if return_fig:
         return fig
 
 
 @plotting.customize
 def create_perf_attrib_tear_sheet(
-    returns,
-    positions,
-    factor_returns,
-    factor_loadings,
-    transactions=None,
-    pos_in_dollars=True,
-    factor_partitions=FACTOR_PARTITIONS,
-    return_fig=False,
+        returns,
+        positions,
+        factor_returns,
+        factor_loadings,
+        transactions=None,
+        pos_in_dollars=True,
+        factor_partitions=FACTOR_PARTITIONS,
+        return_fig=False,
 ):
     """
     Generate plots and tables for analyzing a strategy's performance.
@@ -1310,6 +1376,7 @@ def create_perf_attrib_tear_sheet(
         )
 
     # gs.tight_layout(fig)
+    save_plot(fig, 'Perf Attribution Tear Sheet')
 
     if return_fig:
         return fig

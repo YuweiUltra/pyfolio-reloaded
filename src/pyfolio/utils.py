@@ -1,3 +1,4 @@
+# utils.py
 #
 # Copyright 2018 Quantopian, Inc.
 #
@@ -22,6 +23,8 @@ import pandas as pd
 from IPython.display import display, HTML
 from matplotlib.pyplot import cm
 from packaging.version import Version
+import os
+import datetime
 
 from . import pos
 from . import txn
@@ -70,7 +73,7 @@ COLORS = [
 
 pandas_version = Version(pd.__version__)
 
-pandas_one_point_three_or_less = pandas_version < Version("1.4")
+pandas_one_point_one_or_less = pandas_version < Version("1.2")
 
 
 def one_dec_places(x, pos):
@@ -186,12 +189,11 @@ def extract_rets_pos_txn_from_zipline(backtest):
     return returns, positions, transactions
 
 
-def print_table(table, name=None, float_format=None, formatters=None, header_rows=None):
+def print_table(table, name=None, float_format=None, formatters=None,
+                header_rows=None, save_to_file=True,
+                output_dir='./plots/temp'):
     """
-    Pretty print a pandas DataFrame.
-
-    Uses HTML output if running inside Jupyter Notebook, otherwise
-    formatted text output.
+    Pretty print a pandas DataFrame and optionally save it as an HTML file with a unique timestamped filename.
 
     Parameters
     ----------
@@ -202,12 +204,15 @@ def print_table(table, name=None, float_format=None, formatters=None, header_row
     float_format : function, optional
         Formatter to use for displaying table elements, passed as the
         `float_format` arg to pd.Dataframe.to_html.
-        E.g. `'{0:.2%}'.format` for displaying 100 as '100.00%'.
     formatters : list or dict, optional
         Formatters to use by column, passed as the `formatters` arg to
         pd.Dataframe.to_html.
     header_rows : dict, optional
         Extra rows to display at the top of the table.
+    save_to_file : bool, optional
+        If True, save the table to an HTML file.
+    output_dir : str, optional
+        Directory where the HTML file will be saved.
     """
 
     if isinstance(table, pd.Series):
@@ -219,21 +224,28 @@ def print_table(table, name=None, float_format=None, formatters=None, header_row
     html = table.to_html(float_format=float_format, formatters=formatters)
 
     if header_rows is not None:
-        # Count the number of columns for the text to span
         n_cols = html.split("<thead>")[1].split("</thead>")[0].count("<th>")
-
-        # Generate the HTML for the extra rows
         rows = ""
         for name, value in header_rows.items():
-            rows += (
-                '\n    <tr style="text-align: right;"><th>%s</th>'
-                + "<td colspan=%d>%s</td></tr>"
-            ) % (name, n_cols, value)
-
-        # Inject the new HTML
+            rows += '\n    <tr style="text-align: right;"><th>%s</th>' % name
+            rows += "<td colspan=%d>%s</td></tr>" % (n_cols, value)
         html = html.replace("<thead>", "<thead>" + rows)
 
-    display(HTML(html))
+    if save_to_file:
+        # Generate a timestamped filename
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S%f")
+        filename = f"table_{timestamp}.html"
+        file_path = os.path.join(output_dir, filename)
+
+        # Create output directory if it doesn't exist
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+
+        with open(file_path, 'w') as f:
+            f.write(html)
+        print(f"Table saved to {file_path}")
+    else:
+        display(HTML(html))
 
 
 def standardize_data(x):
@@ -312,8 +324,8 @@ def check_intraday(estimate, returns, positions, transactions):
         if positions is not None and transactions is not None:
             if detect_intraday(positions, transactions):
                 warnings.warn(
-                    "Detected intraday strategy; inferring positions"
-                    + "from transactions. Set estimate_intraday"
+                    "Detected intraday strategy; inferring positi"
+                    + "ons from transactions. Set estimate_intraday"
                     + "=False to disable."
                 )
                 return estimate_intraday(returns, positions, transactions)
@@ -417,7 +429,7 @@ def clip_returns_to_benchmark(rets, benchmark_rets):
     """
 
     if (rets.index[0] < benchmark_rets.index[0]) or (
-        rets.index[-1] > benchmark_rets.index[-1]
+            rets.index[-1] > benchmark_rets.index[-1]
     ):
         clipped_rets = rets[benchmark_rets.index]
     else:
@@ -506,7 +518,7 @@ def get_symbol_rets(symbol, start=None, end=None):
 
 
 def configure_legend(
-    ax, autofmt_xdate=True, change_colors=False, rotation=30, ha="right"
+        ax, autofmt_xdate=True, change_colors=False, rotation=30, ha="right"
 ):
     """
     Format legend for perf attribution plots:

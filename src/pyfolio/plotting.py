@@ -1,3 +1,4 @@
+#plotting.py
 #
 # Copyright 2018 Quantopian, Inc.
 #
@@ -12,8 +13,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import calendar
 import datetime
+import calendar
 from collections import OrderedDict
 from functools import wraps
 
@@ -25,11 +26,11 @@ import numpy as np
 import pandas as pd
 import pytz
 import scipy as sp
-import seaborn as sns
 from matplotlib import figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.ticker import FuncFormatter
-
+import os
+import seaborn as sns
 from . import capacity
 from . import pos
 from . import timeseries
@@ -80,8 +81,8 @@ def plotting_context(context="notebook", font_scale=1.5, rc=None):
 
     Example
     -------
-    >>> with pyfolio.plotting.plotting_context(font_scale=2):
-    >>>    pyfolio.create_full_tear_sheet(..., set_context=False)
+    >> with pyfolio.plotting.plotting_context(font_scale=2):
+    >>    pyfolio.create_full_tear_sheet(..., set_context=False)
 
     See also
     --------
@@ -120,8 +121,8 @@ def axes_style(style="darkgrid", rc=None):
 
     Example
     -------
-    >>> with pyfolio.plotting.axes_style(style='whitegrid'):
-    >>>    pyfolio.create_full_tear_sheet(..., set_context=False)
+    >> with pyfolio.plotting.axes_style(style='whitegrid'):
+    >>    pyfolio.create_full_tear_sheet(..., set_context=False)
 
     See also
     --------
@@ -346,7 +347,7 @@ def plot_holdings(returns, positions, legend_loc="best", ax=None, **kwargs):
 
 
 def plot_long_short_holdings(
-    returns, positions, legend_loc="upper left", ax=None, **kwargs
+        returns, positions, legend_loc="upper left", ax=None, **kwargs
 ):
     """
     Plots total amount of stocks with an active position, breaking out
@@ -444,10 +445,9 @@ def plot_drawdown_periods(returns, top=10, ax=None, **kwargs):
 
     lim = ax.get_ylim()
     colors = sns.cubehelix_palette(len(df_drawdowns))[::-1]
-    # print(df_drawdowns)
-    for i, (peak, recovery) in (
-        df_drawdowns[["Peak date", "Recovery date"]].dropna(how="all").iterrows()
-    ):
+    for i, (peak, recovery) in df_drawdowns[["Peak date", "Recovery date"]].iterrows():
+        if pd.isnull(peak):
+            continue  # Skip if peak date is NaT or missing
         if pd.isnull(recovery):
             recovery = returns.index[-1]
         ax.fill_between((peak, recovery), lim[0], lim[1], alpha=0.4, color=colors[i])
@@ -543,15 +543,14 @@ STAT_FUNCS_PCT = [
 
 
 def show_perf_stats(
-    returns,
-    factor_returns=None,
-    positions=None,
-    transactions=None,
-    turnover_denom="AGB",
-    live_start_date=None,
-    bootstrap=False,
-    header_rows=None,
-    return_df=False,
+        returns,
+        factor_returns=None,
+        positions=None,
+        transactions=None,
+        turnover_denom="AGB",
+        live_start_date=None,
+        bootstrap=False,
+        header_rows=None,
 ):
     """
     Prints some performance metrics of the strategy.
@@ -674,8 +673,6 @@ def show_perf_stats(
         header_rows = OrderedDict(header_rows)
         header_rows.update(date_rows)
 
-    if return_df:
-        return perf_stats
     utils.print_table(
         perf_stats,
         float_format="{0:.2f}".format,
@@ -729,16 +726,16 @@ def plot_returns(returns, live_start_date=None, ax=None):
 
 
 def plot_rolling_returns(
-    returns,
-    factor_returns=None,
-    live_start_date=None,
-    logy=False,
-    cone_std=None,
-    legend_loc="best",
-    volatility_match=False,
-    cone_function=timeseries.forecast_cone_bootstrap,
-    ax=None,
-    **kwargs,
+        returns,
+        factor_returns=None,
+        live_start_date=None,
+        logy=False,
+        cone_std=None,
+        legend_loc="best",
+        volatility_match=False,
+        cone_function=timeseries.forecast_cone_bootstrap,
+        ax=None,
+        **kwargs,
 ):
     """
     Plots cumulative rolling returns versus some benchmarks'.
@@ -811,7 +808,7 @@ def plot_rolling_returns(
     ax.yaxis.set_major_formatter(FuncFormatter(y_axis_formatter))
 
     if factor_returns is not None:
-        cum_factor_returns = ep.cum_returns(factor_returns.loc[cum_rets.index], 1.0)
+        cum_factor_returns = ep.cum_returns(factor_returns[cum_rets.index], 1.0)
         cum_factor_returns.plot(
             lw=2,
             color="gray",
@@ -924,12 +921,12 @@ def plot_rolling_beta(returns, factor_returns, legend_loc="best", ax=None, **kwa
 
 
 def plot_rolling_volatility(
-    returns,
-    factor_returns=None,
-    rolling_window=APPROX_BDAYS_PER_MONTH * 6,
-    legend_loc="best",
-    ax=None,
-    **kwargs,
+        returns,
+        factor_returns=None,
+        rolling_window=APPROX_BDAYS_PER_MONTH * 6,
+        legend_loc="best",
+        ax=None,
+        **kwargs,
 ):
     """
     Plots the rolling volatility versus date.
@@ -998,12 +995,12 @@ def plot_rolling_volatility(
 
 
 def plot_rolling_sharpe(
-    returns,
-    factor_returns=None,
-    rolling_window=APPROX_BDAYS_PER_MONTH * 6,
-    legend_loc="best",
-    ax=None,
-    **kwargs,
+        returns,
+        factor_returns=None,
+        rolling_window=APPROX_BDAYS_PER_MONTH * 6,
+        legend_loc="best",
+        ax=None,
+        **kwargs,
 ):
     """
     Plots the rolling Sharpe ratio versus date.
@@ -1158,13 +1155,13 @@ def plot_exposures(returns, positions, ax=None, **kwargs):
 
 
 def show_and_plot_top_positions(
-    returns,
-    positions_alloc,
-    show_and_plot=2,
-    hide_positions=False,
-    legend_loc="real_best",
-    ax=None,
-    **kwargs,
+        returns,
+        positions_alloc,
+        show_and_plot=2,
+        hide_positions=False,
+        legend_loc="real_best",
+        ax=None,
+        **kwargs,
 ):
     """
     Prints and/or plots the exposures of the top 10 held positions of
@@ -1377,7 +1374,7 @@ def plot_return_quantiles(returns, live_start_date=None, ax=None, **kwargs):
     is_weekly = ep.aggregate_returns(is_returns, "weekly")
     is_monthly = ep.aggregate_returns(is_returns, "monthly")
     sns.boxplot(
-        data=[is_returns.values, is_weekly.values, is_monthly.values],
+        data=[is_returns, is_weekly, is_monthly],
         palette=["#4c72B0", "#55A868", "#CCB974"],
         ax=ax,
         **kwargs,
@@ -1411,13 +1408,13 @@ def plot_return_quantiles(returns, live_start_date=None, ax=None, **kwargs):
 
 
 def plot_turnover(
-    returns,
-    transactions,
-    positions,
-    turnover_denom="AGB",
-    legend_loc="best",
-    ax=None,
-    **kwargs,
+        returns,
+        transactions,
+        positions,
+        turnover_denom="AGB",
+        legend_loc="best",
+        ax=None,
+        **kwargs,
 ):
     """
     Plots turnover vs. date.
@@ -1485,12 +1482,12 @@ def plot_turnover(
 
 
 def plot_slippage_sweep(
-    returns,
-    positions,
-    transactions,
-    slippage_params=(3, 8, 10, 12, 15, 20, 50),
-    ax=None,
-    **kwargs,
+        returns,
+        positions,
+        transactions,
+        slippage_params=(3, 8, 10, 12, 15, 20, 50),
+        ax=None,
+        **kwargs,
 ):
     """
     Plots equity curves at different per-dollar slippage assumptions.
@@ -1589,14 +1586,14 @@ def plot_slippage_sensitivity(returns, positions, transactions, ax=None, **kwarg
 
 
 def plot_capacity_sweep(
-    returns,
-    transactions,
-    market_data,
-    bt_starting_capital,
-    min_pv=100000,
-    max_pv=300000000,
-    step_size=1000000,
-    ax=None,
+        returns,
+        transactions,
+        market_data,
+        bt_starting_capital,
+        min_pv=100000,
+        max_pv=300000000,
+        step_size=1000000,
+        ax=None,
 ):
     txn_daily_w_bar = capacity.daily_txns_with_bar_data(transactions, market_data)
 
@@ -1623,7 +1620,7 @@ def plot_capacity_sweep(
 
 
 def plot_daily_turnover_hist(
-    transactions, positions, turnover_denom="AGB", ax=None, **kwargs
+        transactions, positions, turnover_denom="AGB", ax=None, **kwargs
 ):
     """
     Plots a histogram of daily turnover rates.
@@ -1703,7 +1700,7 @@ def plot_daily_volume(returns, transactions, ax=None, **kwargs):
 
 
 def plot_txn_time_hist(
-    transactions, bin_minutes=5, tz="America/New_York", ax=None, **kwargs
+        transactions, bin_minutes=5, tz="America/New_York", ax=None, **kwargs
 ):
     """
     Plots a histogram of transaction times, binning the times into
@@ -1979,14 +1976,14 @@ def plot_prob_profit_trade(round_trips, ax=None):
 
 
 def plot_cones(
-    name,
-    bounds,
-    oos_returns,
-    num_samples=1000,
-    ax=None,
-    cone_std=(1.0, 1.5, 2.0),
-    random_seed=None,
-    num_strikes=3,
+        name,
+        bounds,
+        oos_returns,
+        num_samples=1000,
+        ax=None,
+        cone_std=(1.0, 1.5, 2.0),
+        random_seed=None,
+        num_strikes=3,
 ):
     """
     Plots the upper and lower bounds of an n standard deviation
@@ -2052,7 +2049,7 @@ def plot_cones(
     for c in range(num_strikes + 1):
         if c > 0:
             tmp = returns.loc[cone_start:]
-            bounds_tmp = bounds_tmp.iloc[0 : len(tmp)]
+            bounds_tmp = bounds_tmp.iloc[0: len(tmp)]
             bounds_tmp = bounds_tmp.set_index(tmp.index)
             crossing = tmp < bounds_tmp[float(-2.0)].iloc[: len(tmp)]
             if crossing.sum() <= 0:
